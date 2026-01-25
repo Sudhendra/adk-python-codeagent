@@ -28,7 +28,7 @@ from .code_execution_utils import CodeExecutionInput
 from .code_execution_utils import CodeExecutionResult
 from .code_execution_utils import File
 
-logger = logging.getLogger('google_adk.' + __name__)
+logger = logging.getLogger("google_adk." + __name__)
 
 
 class AgentEngineSandboxCodeExecutor(BaseCodeExecutor):
@@ -63,8 +63,8 @@ class AgentEngineSandboxCodeExecutor(BaseCodeExecutor):
       **data: Additional keyword arguments to be passed to the base class.
     """
     super().__init__(**data)
-    sandbox_resource_name_pattern = r'^projects/([a-zA-Z0-9-_]+)/locations/([a-zA-Z0-9-_]+)/reasoningEngines/(\d+)/sandboxEnvironments/(\d+)$'
-    agent_engine_resource_name_pattern = r'^projects/([a-zA-Z0-9-_]+)/locations/([a-zA-Z0-9-_]+)/reasoningEngines/(\d+)$'
+    sandbox_resource_name_pattern = r"^projects/([a-zA-Z0-9-_]+)/locations/([a-zA-Z0-9-_]+)/reasoningEngines/(\d+)/sandboxEnvironments/(\d+)$"
+    agent_engine_resource_name_pattern = r"^projects/([a-zA-Z0-9-_]+)/locations/([a-zA-Z0-9-_]+)/reasoningEngines/(\d+)$"
 
     if sandbox_resource_name is not None:
       self.sandbox_resource_name = sandbox_resource_name
@@ -84,17 +84,17 @@ class AgentEngineSandboxCodeExecutor(BaseCodeExecutor):
       # @TODO - Add TTL for sandbox creation after it is available
       # in SDK.
       operation = self._get_api_client().agent_engines.sandboxes.create(
-          spec={'code_execution_environment': {}},
+          spec={"code_execution_environment": {}},
           name=agent_engine_resource_name,
           config=types.CreateAgentEngineSandboxConfig(
-              display_name='default_sandbox'
+              display_name="default_sandbox"
           ),
       )
       self.sandbox_resource_name = operation.response.name
     else:
       raise ValueError(
-          'Either sandbox_resource_name or agent_engine_resource_name must be'
-          ' set.'
+          "Either sandbox_resource_name or agent_engine_resource_name must be"
+          " set."
       )
 
   @override
@@ -105,14 +105,14 @@ class AgentEngineSandboxCodeExecutor(BaseCodeExecutor):
   ) -> CodeExecutionResult:
     # Execute the code.
     input_data = {
-        'code': code_execution_input.code,
+        "code": code_execution_input.code,
     }
     if code_execution_input.input_files:
-      input_data['files'] = [
+      input_data["files"] = [
           {
-              'name': f.name,
-              'contents': f.content,
-              'mimeType': f.mime_type,
+              "name": f.name,
+              "content": f.content,
+              "mime_type": f.mime_type,
           }
           for f in code_execution_input.input_files
       ]
@@ -123,27 +123,39 @@ class AgentEngineSandboxCodeExecutor(BaseCodeExecutor):
             input_data=input_data,
         )
     )
-    logger.debug('Executed code:\n```\n%s\n```', code_execution_input.code)
+    logger.debug("Executed code:\n```\n%s\n```", code_execution_input.code)
     saved_files = []
-    stdout = ''
-    stderr = ''
+    stdout = ""
+    stderr = ""
     for output in code_execution_response.outputs:
-      if output.mime_type == 'application/json' and (
+      if output.mime_type == "application/json" and (
           output.metadata is None
           or output.metadata.attributes is None
-          or 'file_name' not in output.metadata.attributes
+          or "file_name" not in output.metadata.attributes
       ):
-        json_output_data = json.loads(output.data.decode('utf-8'))
-        stdout = json_output_data.get('stdout', '')
-        stderr = json_output_data.get('stderr', '')
+        json_output_data = json.loads(output.data.decode("utf-8"))
+        if isinstance(json_output_data, dict):
+          # Primary fields returned by the API are msg_out/msg_err.
+          # Fall back to stdout/stderr for backward compatibility.
+          stdout = json_output_data.get(
+              "msg_out", json_output_data.get("stdout", "")
+          )
+          stderr = json_output_data.get(
+              "msg_err", json_output_data.get("stderr", "")
+          )
+        else:
+          logger.warning(
+              "Received non-dict JSON output from sandbox: %s",
+              json_output_data,
+          )
       else:
-        file_name = ''
+        file_name = ""
         if (
             output.metadata is not None
             and output.metadata.attributes is not None
         ):
-          file_name = output.metadata.attributes.get('file_name', b'').decode(
-              'utf-8'
+          file_name = output.metadata.attributes.get("file_name", b"").decode(
+              "utf-8"
           )
         mime_type = output.mime_type
         if not mime_type:
@@ -183,6 +195,6 @@ class AgentEngineSandboxCodeExecutor(BaseCodeExecutor):
     match = re.fullmatch(pattern, resource_name)
 
     if not match:
-      raise ValueError(f'resource name {resource_name} is not valid.')
+      raise ValueError(f"resource name {resource_name} is not valid.")
 
     return match.groups()[0], match.groups()[1]
