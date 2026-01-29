@@ -137,12 +137,12 @@ class AgentEngineSandboxCodeExecutor(BaseCodeExecutor):
         if isinstance(json_output_data, dict):
           # Primary fields returned by the API are msg_out/msg_err.
           # Fall back to stdout/stderr for backward compatibility.
-          stdout = json_output_data.get(
-              "msg_out", json_output_data.get("stdout", "")
-          )
-          stderr = json_output_data.get(
-              "msg_err", json_output_data.get("stderr", "")
-          )
+          stdout = json_output_data.get("msg_out")
+          if stdout is None:
+            stdout = json_output_data.get("stdout", "")
+          stderr = json_output_data.get("msg_err")
+          if stderr is None:
+            stderr = json_output_data.get("stderr", "")
         else:
           logger.warning(
               "Received non-dict JSON output from sandbox: %s",
